@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Лаборатория Параметров</title>
+    <style>
+        /* БАЗОВЫЕ СТИЛИ */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        body, html { width: 100%; height: 100%; background: #000; overflow: hidden; position: fixed; font-family: 'Segoe UI', sans-serif; }
+        
+        /* ХОЛСТ */
+        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        /* ИНТЕРФЕЙС */
+        #ui-btn {
+            position: fixed; top: 20px; right: 20px; z-index: 100;
+            width: 44px; height: 44px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; border-radius: 50%; font-size: 22px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            backdrop-filter: blur(5px); transition: background 0.2s;
+        }
+        #ui-btn:active { background: rgba(255,255,255,0.3); }
+
+        #panel {
+            position: fixed; top: 0; right: 0; bottom: 0;
+            width: 320px; background: rgba(10, 12, 16, 0.96);
+            border-left: 1px solid #333; z-index: 90;
+            transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            padding: 20px; overflow-y: auto;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+        #panel.active { transform: translateX(0); }
+
+        /* ГРУППЫ НАСТРОЕК */
+        .group { margin-bottom: 25px; border-bottom: 1px solid #222; padding-bottom: 15px; }
+        .group h4 { color: #fff; font-size: 12px; text-transform: uppercase; opacity: 0.5; margin-bottom: 15px; letter-spacing: 1px; }
+
+        .control { margin-bottom: 15px; }
+        label { display: flex; justify-content: space-between; color: #aaa; font-size: 12px; margin-bottom: 6px; }
+        .val { color: #00e5ff; font-family: monospace; }
+
+        /* СТИЛИ ПОЛЗУНКОВ */
+        input[type=range] {
+            width: 100%; height: 4px; background: #333; border-radius: 2px;
+            -webkit-appearance: none; outline: none; cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            background: #00e5ff; border-radius: 50%; border: 2px solid #000;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+        
+        select {
+            width: 100%; padding: 10px; background: #1a1a20; color: #fff;
+            border: 1px solid #444; border-radius: 6px; outline: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-btn">🎛️</div>
+
+    <div id="panel">
+        <div class="group">
+            <h4>База</h4>
+            <div class="control">
+                <select id="preset">
+                    <option value="custom">🛠️ Лаборатория (Custom)</option>
+                    <option value="torus">Пончик (Тор)</option>
+                    <option value="sphere">Сфера</option>
+                    <option value="lissajous">Узел Лиссажу</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="group">
+            <h4>Геометрия (X/Y/Z)</h4>
+            <div class="control">
+                <label>Частота X <span id="v-freqX" class="val"></span></label>
+                <input type="range" id="freqX" min="0" max="10" step="0.1" value="1.0">
+            </div>
+            <div class="control">
+                <label>Частота Y <span id="v-freqY" class="val"></span></label>
+                <input type="range" id="freqY" min="0" max="10" step="0.1" value="2.0">
+            </div>
+            <div class="control">
+                <label>Частота Z <span id="v-freqZ" class="val"></span></label>
+                <input type="range" id="freqZ" min="0" max="10" step="0.1" value="3.0">
+            </div>
+             <div class="control">
+                <label>Амплитуда (Размер) <span id="v-amp" class="val"></span></label>
+                <input type="range" id="amp" min="50" max="300" step="10" value="160">
+            </div>
+        </div>
+
+        <div class="group">
+            <h4>Физика</h4>
+            <div class="control">
+                <label>Скорость времени <span id="v-speed" class="val"></span></label>
+                <input type="range" id="speed" min="0" max="3.0" step="0.1" value="1.0">
+            </div>
+            <div class="control">
+                <label>Шум (Chaos) <span id="v-noise" class="val"></span></label>
+                <input type="range" id="noise" min="0" max="50" step="1" value="0">
+            </div>
+            <div class="control">
+                <label>Вращение сцены <span id="v-rotSpeed" class="val"></span></label>
+                <input type="range" id="rotSpeed" min="0" max="2.0" step="0.1" value="0.2">
+            </div>
+        </div>
+
+        <div class="group">
+            <h4>Визуал</h4>
+            <div class="control">
+                <label>Зум (Камера) <span id="v-zoom" class="val"></span></label>
+                <input type="range" id="zoom" min="0.5" max="5.0" step="0.1" value="1.0">
+            </div>
+            <div class="control">
+                <label>Длина следа <span id="v-trail" class="val"></span></label>
+                <input type="range" id="trail" min="0.02" max="0.4" step="0.01" value="0.1">
+            </div>
+            <div class="control">
+                <label>Толщина частиц <span id="v-size" class="val"></span></label>
+                <input type="range" id="size" min="0.5" max="8.0" step="0.1" value="1.5">
+            </div>
+        </div>
+
+        <div class="group">
+            <h4>Цвет</h4>
+            <div class="control">
+                <label>Базовый тон <span id="v-hue" class="val"></span></label>
+                <input type="range" id="hue" min="0" max="360" step="1" value="200">
+            </div>
+            <div class="control">
+                <label>Скорость смены цвета <span id="v-hueSpeed" class="val"></span></label>
+                <input type="range" id="hueSpeed" min="0" max="5.0" step="0.1" value="0">
+            </div>
+        </div>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+
+// --- CONFIG STATE ---
+const cfg = {
+    // Режим работы: 'custom' использует ползунки частот
+    preset: 'custom', 
+    
+    // Параметры геометрии (Лаборатория)
+    freqX: 1.0,
+    freqY: 2.0, // Классический тор (1 к 2)
+    freqZ: 3.0,
+    amp: 160,
+    
+    // Физика
+    speed: 1.0,
+    noise: 0,
+    rotSpeed: 0.2, // Авто-вращение
+    
+    // Визуал
+    zoom: 1.0,
+    trail: 0.1,
+    size: 1.5,
+    
+    // Цвет
+    hue: 200,
+    hueSpeed: 0, // 0 = статичный цвет
+    currentHue: 200
+};
+
+// --- UI SETUP ---
+const ui = {
+    panel: document.getElementById('panel'),
+    btn: document.getElementById('ui-btn'),
+    inputs: {
+        preset: document.getElementById('preset'),
+        freqX: document.getElementById('freqX'),
+        freqY: document.getElementById('freqY'),
+        freqZ: document.getElementById('freqZ'),
+        amp: document.getElementById('amp'),
+        speed: document.getElementById('speed'),
+        noise: document.getElementById('noise'),
+        rotSpeed: document.getElementById('rotSpeed'),
+        zoom: document.getElementById('zoom'),
+        trail: document.getElementById('trail'),
+        size: document.getElementById('size'),
+        hue: document.getElementById('hue'),
+        hueSpeed: document.getElementById('hueSpeed'),
+    }
+};
+
+ui.btn.onclick = () => ui.panel.classList.toggle('active');
+
+// Подключение всех инпутов к конфигу
+Object.keys(ui.inputs).forEach(key => {
+    const el = ui.inputs[key];
+    const label = document.getElementById('v-' + key);
+    
+    // Инициализация значений при загрузке
+    if (label) label.innerText = cfg[key];
+    
+    el.addEventListener('input', (e) => {
+        const val = key === 'preset' ? e.target.value : parseFloat(e.target.value);
+        cfg[key] = val;
+        
+        if (label) label.innerText = val.toFixed ? val.toFixed(1) : val;
+        
+        // Логика пресетов
+        if (key === 'preset') applyPreset(val);
+        // Если меняем ползунки частот, переключаем селект в Custom
+        if (['freqX', 'freqY', 'freqZ'].includes(key)) {
+            ui.inputs.preset.value = 'custom';
+            cfg.preset = 'custom';
+        }
+        // Сброс холста при сильных изменениях
+        if (['preset', 'amp'].includes(key)) resetCanvas();
+    });
+});
+
+function applyPreset(name) {
+    if (name === 'torus') {
+        setSliders({ freqX: 1.0, freqY: 2.0, freqZ: 1.0, noise: 0 });
+    } else if (name === 'sphere') {
+        // Сфера через parametric math сложнее, эмулируем "клубок"
+        setSliders({ freqX: 5.0, freqY: 4.0, freqZ: 6.0, noise: 2 });
+    } else if (name === 'lissajous') {
+        setSliders({ freqX: 3.0, freqY: 2.0, freqZ: 4.0, noise: 0 });
+    }
+    resetCanvas();
+}
+
+function setSliders(vals) {
+    Object.keys(vals).forEach(k => {
+        cfg[k] = vals[k];
+        ui.inputs[k].value = vals[k];
+        document.getElementById('v-'+k).innerText = vals[k].toFixed(1);
+    });
+}
+
+// --- ENGINE ---
+let w, h;
+const numParticles = 800;
+const particles = [];
+
+let time = 0;
+let autoRotY = 0;
+
+class Particle {
+    constructor() {
+        this.reset();
+        this.prev2D = null;
+    }
+
+    reset() {
+        // Углы (Параметры t)
+        this.u = Math.random() * Math.PI * 20; // Длинный путь
+        this.speedOffset = 0.5 + Math.random(); 
+        
+        // Индивидуальные отклонения
+        this.offset = Math.random() * 20;
+    }
+
+    getPos(t) {
+        let x, y, z;
+        
+        // --- ГЛАВНАЯ ФОРМУЛА ЛАБОРАТОРИИ ---
+        // Параметрические уравнения с изменяемыми частотами
+        // Это позволяет создавать любые формы Лиссажу и Тороидальные узлы
+        
+        // t + this.u = позиция точки на траектории
+        const T = t * 0.5 + this.u;
+        
+        const fx = cfg.freqX;
+        const fy = cfg.freqY;
+        const fz = cfg.freqZ;
+        const A = cfg.amp;
+        
+        // Базовая формула узла
+        x = A * Math.sin(T * fx);
+        y = A * Math.cos(T * fy);
+        z = A * Math.sin(T * fz);
+        
+        // Если выбран режим "Тор" (или похожие частоты), добавляем объем
+        // Эвристика: Если частоты маленькие, делаем "трубу"
+        if (cfg.preset === 'torus' || (fx < 2 && fy < 3)) {
+            const r_tube = 60;
+            // Модифицируем координаты для тора
+            const R = 150;
+            const u = T * fx; // Большое кольцо
+            const v = T * 5;  // Малое кольцо
+            x = (R + r_tube * Math.cos(v)) * Math.cos(u);
+            y = (R + r_tube * Math.cos(v)) * Math.sin(u);
+            z = r_tube * Math.sin(v);
+        }
+
+        // Шум (Chaos)
+        if (cfg.noise > 0) {
+            x += (Math.random()-0.5) * cfg.noise;
+            y += (Math.random()-0.5) * cfg.noise;
+            z += (Math.random()-0.5) * cfg.noise;
+        }
+
+        return {x, y, z};
+    }
+
+    draw(ctx, t, rotX, rotY) {
+        const p = this.getPos(t);
+        let {x, y, z} = p;
+
+        // Вращение
+        let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
+        let z1 = z * Math.cos(rotY) + x * Math.sin(rotY);
+        let y2 = y * Math.cos(rotX) - z1 * Math.sin(rotX);
+        let z2 = z1 * Math.cos(rotX) + y * Math.sin(rotX);
+
+        // Зум
+        z2 -= 500 / cfg.zoom;
+
+        // Проекция
+        const fov = 500;
+        const scale = fov / (fov + z2);
+
+        if (z2 <= -fov + 10) { this.prev2D = null; return; }
+
+        const sx = x1 * scale;
+        const sy = y2 * scale;
+
+        if (this.prev2D && scale > 0) {
+            const d = Math.abs(sx - this.prev2D.x) + Math.abs(sy - this.prev2D.y);
+            if (d < 200) {
+                ctx.beginPath();
+                ctx.moveTo(this.prev2D.x, this.prev2D.y);
+                ctx.lineTo(sx, sy);
+                
+                // Расчет цвета
+                const h = (cfg.currentHue + z2 * 0.1) % 360; 
+                const a = Math.min(1, scale);
+                
+                ctx.strokeStyle = `hsla(${h}, 80%, 60%, ${a})`;
+                ctx.lineWidth = scale * dpr * cfg.size;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+        }
+        this.prev2D = {x: sx, y: sy};
+    }
+}
+
+// --- INIT SYSTEM ---
+function init() {
+    for(let i=0; i<numParticles; i++) particles.push(new Particle());
+    window.addEventListener('resize', resize);
+    resize();
+    animate();
+}
+
+function resize() {
+    w = window.innerWidth;
+    h = window.innerHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    resetCanvas();
+}
+
+function resetCanvas() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => p.prev2D = null);
+}
+
+// Mouse Controls
+let rotX = 0, rotY = 0;
+let isDrag = false, lastX, lastY;
+
+canvas.addEventListener('pointerdown', e => { isDrag=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', e => { isDrag=false; canvas.releasePointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+    if(!isDrag) return;
+    rotY += (e.clientX - lastX) * 0.005;
+    rotX += (e.clientY - lastY) * 0.005;
+    lastX=e.clientX; lastY=e.clientY;
+});
+
+function animate() {
+    // 1. Fade
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = `rgba(0, 0, 0, ${cfg.trail})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. Центровка
+    ctx.setTransform(dpr, 0, 0, dpr, (w * dpr) / 2, (h * dpr) / 2);
+
+    // 3. Обновление состояния
+    ctx.globalCompositeOperation = 'lighter';
+    time += 0.01 * cfg.speed;
+    
+    // Авто-смена цвета
+    if (cfg.hueSpeed > 0) {
+        cfg.currentHue += cfg.hueSpeed;
+        if (cfg.currentHue > 360) cfg.currentHue = 0;
+    } else {
+        cfg.currentHue = cfg.hue;
+    }
+
+    // Авто-вращение
+    autoRotY += 0.01 * cfg.rotSpeed;
+
+    for (const p of particles) {
+        p.draw(ctx, time, rotX, rotY + autoRotY);
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    requestAnimationFrame(animate);
+}
+
+init();
+</script>
+</body>
+</html>
